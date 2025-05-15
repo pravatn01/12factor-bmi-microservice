@@ -3,6 +3,10 @@ from pydantic import BaseModel
 from typing import List, Optional
 import sqlite3
 from datetime import datetime
+from loguru import logger
+
+# Configure logger
+logger.add("api.log", rotation="500 MB", level="INFO")
 
 app = FastAPI(title="BMI Calculator API")
 
@@ -44,7 +48,9 @@ class BMIHistoryItem(BMIResponse):
 
 @app.post("/calculate-bmi", response_model=BMIResponse)
 async def calculate_bmi(input_data: BMIInput):
+    logger.info(f"Calculating BMI for user: {input_data.name}")
     if input_data.weight <= 0 or input_data.height <= 0:
+        logger.error(f"Invalid input - weight: {input_data.weight}, height: {input_data.height}")
         raise HTTPException(status_code=400, detail="Weight and height must be positive numbers")
 
     try:
@@ -61,6 +67,8 @@ async def calculate_bmi(input_data: BMIInput):
         else:
             category = "Obese"
 
+        logger.info(f"BMI calculation result - User: {input_data.name}, BMI: {round(bmi, 2)}, Category: {category}")
+
         # Save to database
         conn = sqlite3.connect('bmi.db')
         c = conn.cursor()
@@ -75,6 +83,7 @@ async def calculate_bmi(input_data: BMIInput):
         timestamp = c.fetchone()[0]
         conn.close()
 
+        logger.info(f"BMI record saved to database for user: {input_data.name}")
         return BMIResponse(
             name=input_data.name,
             bmi=round(bmi, 2),
@@ -82,10 +91,12 @@ async def calculate_bmi(input_data: BMIInput):
             timestamp=timestamp
         )
     except Exception as e:
+        logger.error(f"Error calculating BMI: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/bmi/history", response_model=List[BMIHistoryItem])
 async def get_bmi_history():
+    logger.info("Retrieving BMI history")
     try:
         conn = sqlite3.connect('bmi.db')
         c = conn.cursor()
@@ -93,6 +104,7 @@ async def get_bmi_history():
         records = c.fetchall()
         conn.close()
 
+        logger.info(f"Retrieved {len(records)} BMI records")
         return [
             BMIHistoryItem(
                 id=record[0],
@@ -106,18 +118,22 @@ async def get_bmi_history():
             for record in records
         ]
     except Exception as e:
+        logger.error(f"Error retrieving BMI history: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/bmi/history")
 async def delete_bmi_history():
+    logger.info("Deleting all BMI history")
     try:
         conn = sqlite3.connect('bmi.db')
         c = conn.cursor()
         c.execute('DELETE FROM bmi_history')
         conn.commit()
         conn.close()
+        logger.info("Successfully deleted all BMI history")
         return {"message": "All BMI history has been deleted successfully"}
     except Exception as e:
+        logger.error(f"Error deleting BMI history: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
