@@ -2,10 +2,13 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 import mysql.connector
+from mysql.connector import pooling
 from datetime import datetime
 from loguru import logger
 import os
 from dotenv import load_dotenv
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 # Load environment variables
 load_dotenv()
@@ -24,35 +27,52 @@ DB_CONFIG = {
     'port': int(os.getenv('DATABASE_PORT', '3306'))
 }
 
+# Create a connection pool
+connection_pool = mysql.connector.pooling.MySQLConnectionPool(
+    pool_name="mypool",
+    pool_size=5,
+    **DB_CONFIG
+)
+
+# Create ThreadPoolExecutor for database operations
+executor = ThreadPoolExecutor(max_workers=10)
+
 # Database initialization
-def init_db():
+async def init_db():
     try:
-        conn = mysql.connector.connect(**DB_CONFIG)
-        cursor = conn.cursor()
+        def _init_db():
+            conn = connection_pool.get_connection()
+            cursor = conn.cursor()
 
-        # Create table if it doesn't exist
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS bmi_history (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                name VARCHAR(255) NOT NULL,
-                height FLOAT NOT NULL,
-                weight FLOAT NOT NULL,
-                bmi FLOAT NOT NULL,
-                category VARCHAR(50) NOT NULL,
-                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
+            # Create table if it doesn't exist
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS bmi_history (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    name VARCHAR(255) NOT NULL,
+                    height FLOAT NOT NULL,
+                    weight FLOAT NOT NULL,
+                    bmi FLOAT NOT NULL,
+                    category VARCHAR(50) NOT NULL,
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
 
-        conn.commit()
-        cursor.close()
-        conn.close()
-        logger.info("Database initialized successfully")
+            conn.commit()
+            cursor.close()
+            conn.close()
+            return "Database initialized successfully"
+
+        # Run database initialization in thread pool
+        result = await asyncio.get_event_loop().run_in_executor(executor, _init_db)
+        logger.info(result)
     except Exception as e:
         logger.error(f"Database initialization error: {str(e)}")
         raise Exception(f"Database initialization failed: {str(e)}")
 
 # Initialize database on startup
-init_db()
+@app.on_event("startup")
+async def startup_event():
+    await init_db()
 
 class BMIInput(BaseModel):
     name: str
@@ -69,6 +89,13 @@ class BMIHistoryItem(BMIResponse):
     id: int
     weight: float
     height: float
+
+async def execute_db_operation(operation_func):
+    try:
+        return await asyncio.get_event_loop().run_in_executor(executor, operation_func)
+    except Exception as e:
+        logger.error(f"Database operation error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/calculate-bmi", response_model=BMIResponse)
 async def calculate_bmi(input_data: BMIInput):
@@ -93,25 +120,29 @@ async def calculate_bmi(input_data: BMIInput):
 
         logger.info(f"BMI calculation result - User: {input_data.name}, BMI: {round(bmi, 2)}, Category: {category}")
 
-        # Save to database
-        conn = mysql.connector.connect(**DB_CONFIG)
-        cursor = conn.cursor()
+        def _save_bmi():
+            conn = connection_pool.get_connection()
+            cursor = conn.cursor()
 
-        query = '''
-            INSERT INTO bmi_history (name, height, weight, bmi, category)
-            VALUES (%s, %s, %s, %s, %s)
-        '''
-        values = (input_data.name, input_data.height, input_data.weight, round(bmi, 2), category)
+            query = '''
+                INSERT INTO bmi_history (name, height, weight, bmi, category)
+                VALUES (%s, %s, %s, %s, %s)
+            '''
+            values = (input_data.name, input_data.height, input_data.weight, round(bmi, 2), category)
 
-        cursor.execute(query, values)
-        conn.commit()
+            cursor.execute(query, values)
+            conn.commit()
 
-        # Get the timestamp of the inserted record
-        cursor.execute('SELECT timestamp FROM bmi_history WHERE id = LAST_INSERT_ID()')
-        timestamp = cursor.fetchone()[0]
+            # Get the timestamp of the inserted record
+            cursor.execute('SELECT timestamp FROM bmi_history WHERE id = LAST_INSERT_ID()')
+            timestamp = cursor.fetchone()[0]
 
-        cursor.close()
-        conn.close()
+            cursor.close()
+            conn.close()
+            return timestamp
+
+        # Execute database operation asynchronously
+        timestamp = await execute_db_operation(_save_bmi)
 
         logger.info(f"BMI record saved to database for user: {input_data.name}")
         return BMIResponse(
@@ -127,8 +158,9 @@ async def calculate_bmi(input_data: BMIInput):
 @app.get("/bmi/history", response_model=List[BMIHistoryItem])
 async def get_bmi_history():
     logger.info("Retrieving BMI history")
-    try:
-        conn = mysql.connector.connect(**DB_CONFIG)
+
+    def _get_history():
+        conn = connection_pool.get_connection()
         cursor = conn.cursor()
 
         cursor.execute('SELECT * FROM bmi_history ORDER BY timestamp DESC')
@@ -136,6 +168,11 @@ async def get_bmi_history():
 
         cursor.close()
         conn.close()
+        return records
+
+    try:
+        # Execute database query asynchronously
+        records = await execute_db_operation(_get_history)
 
         logger.info(f"Retrieved {len(records)} BMI records")
         return [
@@ -157,8 +194,9 @@ async def get_bmi_history():
 @app.delete("/bmi/history")
 async def delete_bmi_history():
     logger.info("Deleting all BMI history")
-    try:
-        conn = mysql.connector.connect(**DB_CONFIG)
+
+    def _delete_history():
+        conn = connection_pool.get_connection()
         cursor = conn.cursor()
 
         cursor.execute('DELETE FROM bmi_history')
@@ -166,6 +204,10 @@ async def delete_bmi_history():
 
         cursor.close()
         conn.close()
+
+    try:
+        # Execute delete operation asynchronously
+        await execute_db_operation(_delete_history)
 
         logger.info("Successfully deleted all BMI history")
         return {"message": "All BMI history has been deleted successfully"}
