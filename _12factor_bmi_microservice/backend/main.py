@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 from typing import List, Optional
 import mysql.connector
@@ -9,14 +9,13 @@ import os
 from dotenv import load_dotenv
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import asynccontextmanager
 
 # Load environment variables
 load_dotenv()
 
 # Configure logger
 logger.add("api.log", rotation="500 MB", level="INFO")
-
-app = FastAPI(title="BMI Calculator API")
 
 # Database configuration
 DB_CONFIG = {
@@ -27,52 +26,51 @@ DB_CONFIG = {
     'port': int(os.getenv('DATABASE_PORT', '3306'))
 }
 
-# Create a connection pool
-connection_pool = mysql.connector.pooling.MySQLConnectionPool(
-    pool_name="mypool",
-    pool_size=5,
-    **DB_CONFIG
-)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: create database pool and initialize
+    logger.info("Creating database connection pool")
+    app.state.db = mysql.connector.pooling.MySQLConnectionPool(
+        pool_name="mypool",
+        pool_size=5,
+        **DB_CONFIG
+    )
 
-# Create ThreadPoolExecutor for database operations
-executor = ThreadPoolExecutor(max_workers=10)
-
-# Database initialization
-async def init_db():
+    # Initialize database
+    conn = app.state.db.get_connection()
+    cursor = conn.cursor()
     try:
-        def _init_db():
-            conn = connection_pool.get_connection()
-            cursor = conn.cursor()
-
-            # Create table if it doesn't exist
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS bmi_history (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    name VARCHAR(255) NOT NULL,
-                    height FLOAT NOT NULL,
-                    weight FLOAT NOT NULL,
-                    bmi FLOAT NOT NULL,
-                    category VARCHAR(50) NOT NULL,
-                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-
-            conn.commit()
-            cursor.close()
-            conn.close()
-            return "Database initialized successfully"
-
-        # Run database initialization in thread pool
-        result = await asyncio.get_event_loop().run_in_executor(executor, _init_db)
-        logger.info(result)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS bmi_history (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                height FLOAT NOT NULL,
+                weight FLOAT NOT NULL,
+                bmi FLOAT NOT NULL,
+                category VARCHAR(50) NOT NULL,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        conn.commit()
+        logger.info("Database initialized successfully")
     except Exception as e:
         logger.error(f"Database initialization error: {str(e)}")
-        raise Exception(f"Database initialization failed: {str(e)}")
+        raise e
+    finally:
+        cursor.close()
+        conn.close()
 
-# Initialize database on startup
-@app.on_event("startup")
-async def startup_event():
-    await init_db()
+    yield  # Application runs here
+
+    # Shutdown: close all connections in the pool
+    logger.info("Closing database connections")
+    try:
+        app.state.db._remove_connections()
+        logger.info("Database connections closed successfully")
+    except Exception as e:
+        logger.error(f"Error closing database connections: {str(e)}")
+
+app = FastAPI(title="BMI Calculator API", lifespan=lifespan)
 
 class BMIInput(BaseModel):
     name: str
@@ -90,15 +88,8 @@ class BMIHistoryItem(BMIResponse):
     weight: float
     height: float
 
-async def execute_db_operation(operation_func):
-    try:
-        return await asyncio.get_event_loop().run_in_executor(executor, operation_func)
-    except Exception as e:
-        logger.error(f"Database operation error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
 @app.post("/calculate-bmi", response_model=BMIResponse)
-async def calculate_bmi(input_data: BMIInput):
+async def calculate_bmi(input_data: BMIInput, request: Request):
     logger.info(f"Calculating BMI for user: {input_data.name}")
     if input_data.weight <= 0 or input_data.height <= 0:
         logger.error(f"Invalid input - weight: {input_data.weight}, height: {input_data.height}")
@@ -120,10 +111,11 @@ async def calculate_bmi(input_data: BMIInput):
 
         logger.info(f"BMI calculation result - User: {input_data.name}, BMI: {round(bmi, 2)}, Category: {category}")
 
-        def _save_bmi():
-            conn = connection_pool.get_connection()
-            cursor = conn.cursor()
+        # Get database connection from app state
+        conn = request.app.state.db.get_connection()
+        cursor = conn.cursor()
 
+        try:
             query = '''
                 INSERT INTO bmi_history (name, height, weight, bmi, category)
                 VALUES (%s, %s, %s, %s, %s)
@@ -137,42 +129,31 @@ async def calculate_bmi(input_data: BMIInput):
             cursor.execute('SELECT timestamp FROM bmi_history WHERE id = LAST_INSERT_ID()')
             timestamp = cursor.fetchone()[0]
 
+            logger.info(f"BMI record saved to database for user: {input_data.name}")
+            return BMIResponse(
+                name=input_data.name,
+                bmi=round(bmi, 2),
+                category=category,
+                timestamp=str(timestamp)
+            )
+        finally:
             cursor.close()
             conn.close()
-            return timestamp
 
-        # Execute database operation asynchronously
-        timestamp = await execute_db_operation(_save_bmi)
-
-        logger.info(f"BMI record saved to database for user: {input_data.name}")
-        return BMIResponse(
-            name=input_data.name,
-            bmi=round(bmi, 2),
-            category=category,
-            timestamp=str(timestamp)
-        )
     except Exception as e:
         logger.error(f"Error calculating BMI: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/bmi/history", response_model=List[BMIHistoryItem])
-async def get_bmi_history():
+async def get_bmi_history(request: Request):
     logger.info("Retrieving BMI history")
 
-    def _get_history():
-        conn = connection_pool.get_connection()
-        cursor = conn.cursor()
-
-        cursor.execute('SELECT * FROM bmi_history ORDER BY timestamp DESC')
-        records = cursor.fetchall()
-
-        cursor.close()
-        conn.close()
-        return records
+    conn = request.app.state.db.get_connection()
+    cursor = conn.cursor()
 
     try:
-        # Execute database query asynchronously
-        records = await execute_db_operation(_get_history)
+        cursor.execute('SELECT * FROM bmi_history ORDER BY timestamp DESC')
+        records = cursor.fetchall()
 
         logger.info(f"Retrieved {len(records)} BMI records")
         return [
@@ -190,30 +171,29 @@ async def get_bmi_history():
     except Exception as e:
         logger.error(f"Error retrieving BMI history: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-
-@app.delete("/bmi/history")
-async def delete_bmi_history():
-    logger.info("Deleting all BMI history")
-
-    def _delete_history():
-        conn = connection_pool.get_connection()
-        cursor = conn.cursor()
-
-        cursor.execute('DELETE FROM bmi_history')
-        conn.commit()
-
+    finally:
         cursor.close()
         conn.close()
 
+@app.delete("/bmi/history")
+async def delete_bmi_history(request: Request):
+    logger.info("Deleting all BMI history")
+
+    conn = request.app.state.db.get_connection()
+    cursor = conn.cursor()
+
     try:
-        # Execute delete operation asynchronously
-        await execute_db_operation(_delete_history)
+        cursor.execute('DELETE FROM bmi_history')
+        conn.commit()
 
         logger.info("Successfully deleted all BMI history")
         return {"message": "All BMI history has been deleted successfully"}
     except Exception as e:
         logger.error(f"Error deleting BMI history: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cursor.close()
+        conn.close()
 
 if __name__ == "__main__":
     import uvicorn
