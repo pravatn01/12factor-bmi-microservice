@@ -1,31 +1,55 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
-import sqlite3
+import mysql.connector
 from datetime import datetime
 from loguru import logger
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Configure logger
 logger.add("api.log", rotation="500 MB", level="INFO")
 
 app = FastAPI(title="BMI Calculator API")
 
+# Database configuration
+DB_CONFIG = {
+    'host': os.getenv('DATABASE_HOST', 'localhost'),
+    'user': os.getenv('DATABASE_USER', 'root'),
+    'password': os.getenv('DATABASE_PASSWORD', ''),
+    'database': os.getenv('DATABASE_NAME', 'bmi_database'),
+    'port': int(os.getenv('DATABASE_PORT', '3306'))
+}
+
 # Database initialization
 def init_db():
-    conn = sqlite3.connect('bmi.db')
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS bmi_history
-        (id INTEGER PRIMARY KEY AUTOINCREMENT,
-         name TEXT NOT NULL,
-         height REAL NOT NULL,
-         weight REAL NOT NULL,
-         bmi REAL NOT NULL,
-         category TEXT NOT NULL,
-         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)
-    ''')
-    conn.commit()
-    conn.close()
+    try:
+        conn = mysql.connector.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+
+        # Create table if it doesn't exist
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS bmi_history (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                height FLOAT NOT NULL,
+                weight FLOAT NOT NULL,
+                bmi FLOAT NOT NULL,
+                category VARCHAR(50) NOT NULL,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.error(f"Database initialization error: {str(e)}")
+        raise Exception(f"Database initialization failed: {str(e)}")
 
 # Initialize database on startup
 init_db()
@@ -70,17 +94,23 @@ async def calculate_bmi(input_data: BMIInput):
         logger.info(f"BMI calculation result - User: {input_data.name}, BMI: {round(bmi, 2)}, Category: {category}")
 
         # Save to database
-        conn = sqlite3.connect('bmi.db')
-        c = conn.cursor()
-        c.execute('''
+        conn = mysql.connector.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+
+        query = '''
             INSERT INTO bmi_history (name, height, weight, bmi, category)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (input_data.name, input_data.height, input_data.weight, round(bmi, 2), category))
+            VALUES (%s, %s, %s, %s, %s)
+        '''
+        values = (input_data.name, input_data.height, input_data.weight, round(bmi, 2), category)
+
+        cursor.execute(query, values)
         conn.commit()
 
         # Get the timestamp of the inserted record
-        c.execute('SELECT timestamp FROM bmi_history WHERE id = last_insert_rowid()')
-        timestamp = c.fetchone()[0]
+        cursor.execute('SELECT timestamp FROM bmi_history WHERE id = LAST_INSERT_ID()')
+        timestamp = cursor.fetchone()[0]
+
+        cursor.close()
         conn.close()
 
         logger.info(f"BMI record saved to database for user: {input_data.name}")
@@ -88,7 +118,7 @@ async def calculate_bmi(input_data: BMIInput):
             name=input_data.name,
             bmi=round(bmi, 2),
             category=category,
-            timestamp=timestamp
+            timestamp=str(timestamp)
         )
     except Exception as e:
         logger.error(f"Error calculating BMI: {str(e)}")
@@ -98,10 +128,13 @@ async def calculate_bmi(input_data: BMIInput):
 async def get_bmi_history():
     logger.info("Retrieving BMI history")
     try:
-        conn = sqlite3.connect('bmi.db')
-        c = conn.cursor()
-        c.execute('SELECT * FROM bmi_history ORDER BY timestamp DESC')
-        records = c.fetchall()
+        conn = mysql.connector.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+
+        cursor.execute('SELECT * FROM bmi_history ORDER BY timestamp DESC')
+        records = cursor.fetchall()
+
+        cursor.close()
         conn.close()
 
         logger.info(f"Retrieved {len(records)} BMI records")
@@ -113,7 +146,7 @@ async def get_bmi_history():
                 weight=record[3],
                 bmi=record[4],
                 category=record[5],
-                timestamp=record[6]
+                timestamp=str(record[6])
             )
             for record in records
         ]
@@ -125,11 +158,15 @@ async def get_bmi_history():
 async def delete_bmi_history():
     logger.info("Deleting all BMI history")
     try:
-        conn = sqlite3.connect('bmi.db')
-        c = conn.cursor()
-        c.execute('DELETE FROM bmi_history')
+        conn = mysql.connector.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+
+        cursor.execute('DELETE FROM bmi_history')
         conn.commit()
+
+        cursor.close()
         conn.close()
+
         logger.info("Successfully deleted all BMI history")
         return {"message": "All BMI history has been deleted successfully"}
     except Exception as e:
