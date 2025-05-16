@@ -211,8 +211,34 @@ pytest tests/test_bmi_api.py -v
 
 ## 📚 Documentation
 
-- API Documentation: http://localhost:8000/docs
-- Project Documentation: http://localhost:8000 (after running `mkdocs serve` in the docs directory)
+The project provides two types of documentation:
+
+### API Documentation
+
+- **Swagger UI**: Available at `http://localhost:8000/docs` (when backend is running)
+- **ReDoc**: Available at `http://localhost:8000/redoc` (when backend is running)
+
+### Project Documentation
+
+To view the project documentation:
+
+1. Navigate to the docs directory:
+   ```bash
+   cd docs
+   ```
+2. Start the documentation server:
+   ```bash
+   mkdocs serve
+   ```
+3. Open `http://localhost:8000` in your browser
+
+The project documentation includes:
+
+- Getting Started Guide
+- Architecture Overview
+- Development Guide
+- Deployment Instructions
+- And more!
 
 ## 🔒 Security
 

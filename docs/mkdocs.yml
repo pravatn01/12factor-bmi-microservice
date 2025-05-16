@@ -2,6 +2,8 @@ site_name: BMI Calculator Microservice
 #
 site_author: Pravat
 #
+docs_dir: docs
+
 theme:
   name: material
   palette:
