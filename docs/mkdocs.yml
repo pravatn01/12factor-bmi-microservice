@@ -1,4 +1,45 @@
-site_name: _12factor_bmi_microservice
-# 
+site_name: BMI Calculator Microservice
+#
 site_author: Pravat
-# 
+#
+theme:
+  name: material
+  palette:
+    primary: teal
+    accent: deep orange
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - search.highlight
+
+markdown_extensions:
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.tabbed
+  - admonition
+  - footnotes
+  - attr_list
+  - md_in_html
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Configuration: getting-started/configuration.md
+      - Running the Application: getting-started/running.md
+  - Architecture:
+      - Overview: architecture/overview.md
+      - Backend Service: architecture/backend.md
+      - Frontend Service: architecture/frontend.md
+      - Database: architecture/database.md
+  - API Reference:
+      - Endpoints: api/endpoints.md
+      - Data Models: api/models.md
+  - Development:
+      - Contributing: development/contributing.md
+      - Testing: development/testing.md
+  - Deployment:
+      - Production Setup: deployment/production.md
+      - Environment Variables: deployment/environment.md
+#

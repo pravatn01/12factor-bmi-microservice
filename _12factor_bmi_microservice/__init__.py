@@ -1,0 +1,3 @@
+"""
+BMI Microservice package
+"""

@@ -1,122 +1,232 @@
-# BMI Calculator Microservice
+# BMI Calculator Microservice 🏋️‍♂️
 
-A modern microservice application for calculating Body Mass Index (BMI) using FastAPI backend and Streamlit frontend that applies as many 12-Factor principles as possible.
+A modern, BMI (Body Mass Index) calculator microservice built with FastAPI and Streamlit. This application follows the 12-Factor methodology for building software-as-a-service applications.
 
-## Project Structure
+## ✨ Features
+
+- **Real-time BMI Calculation**: Instantly calculate BMI with weight and height inputs
+- **BMI History Tracking**: Store and view past BMI calculations
+- **Modern UI**: Clean and responsive interface built with Streamlit
+- **RESTful API**: Well-documented API endpoints using FastAPI
+- **Database Integration**: Persistent storage using MySQL
+- **Comprehensive Documentation**: Including API docs and deployment guides
+
+### 🏭 12-Factor Compliance
+
+> This application implements key principles from the twelve-factor methodology for building modern, scalable applications.
+
+<details>
+<summary>💫 View Implemented Principles</summary>
+
+#### 1️⃣ **Codebase**
+
+- Single codebase tracked in version control
+- Enhanced with pre-commit hooks for code quality
+
+#### 2️⃣ **Dependencies**
+
+- Explicitly declared in requirements.txt
+- Isolated in virtual environment
+
+#### 3️⃣ **Config**
+
+- Environment variables stored in .env
+- Virtual environment setup for isolation
+
+#### 4️⃣ **Backing Services**
+
+- MySQL database treated as attached resource
+- Clean separation of database configuration
+
+#### 5️⃣ **Processes**
+
+- Stateless application processes
+- Clean separation of concerns
+
+#### 6️⃣ **Port Binding**
+
+- Services exported via port binding
+- Backend and frontend on separate ports
+
+#### 7️⃣ **Concurrency**
+
+- Implemented using asyncio
+- Scalable process model
+
+#### 8️⃣ **Disposability**
+
+- Fast startup and graceful shutdown
+- Implemented using lifecycle event context managers
+
+#### 9️⃣ **Logs**
+
+- Implemented using Loguru
+- Treated as event streams
+
+</details>
+
+## 🏗️ Architecture
+
+```mermaid
+graph TB
+    User[User/Browser] --> Frontend[Frontend Service<br/>Streamlit]
+    Frontend --> Backend[Backend Service<br/>FastAPI]
+    Backend --> Database[(MySQL Database)]
+```
+
+## 🛠️ Tech Stack
+
+- **Backend**: FastAPI (Python)
+- **Frontend**: Streamlit
+- **Database**: MySQL
+- **Documentation**: MkDocs with Material theme
+- **Testing**: pytest
+- **Logging**: Loguru
+
+## 📦 Prerequisites
+
+- Python 3.8 or higher
+- MySQL 8.0 or higher
+- pip (Python package manager)
+- Git (optional)
+
+## 🚀 Quick Start
+
+1. **Clone the repository**
+
+   ```bash
+   git clone https://github.com/yourusername/bmi-calculator-microservice.git
+   cd bmi-calculator-microservice
+   ```
+
+2. **Set up Python virtual environment**
+
+   ```bash
+   # Windows
+   python -m venv venv
+   .\venv\Scripts\activate
+
+   # Linux/MacOS
+   python3 -m venv venv
+   source venv/bin/activate
+   ```
+
+3. **Install dependencies**
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Configure database**
+
+   - Install MySQL if not already installed
+   - Create a new database:
+     ```sql
+     CREATE DATABASE bmi_database;
+     ```
+   - Create `.env` file in the backend directory:
+     ```env
+     DATABASE_HOST=localhost
+     DATABASE_USER=your_username
+     DATABASE_PASSWORD=your_password
+     DATABASE_NAME=bmi_database
+     DATABASE_PORT=3306
+     ```
+
+5. **Start the backend service**
+
+   ```bash
+   cd _12factor_bmi_microservice\backend; uvicorn main:app --reload
+   ```
+
+   Backend will be available at: http://localhost:8000
+
+6. **Start the frontend service** (in a new terminal)
+   ```bash
+   cd _12factor_bmi_microservice/frontend; streamlit run app.py
+   ```
+   Frontend will be available at: http://localhost:8501
+
+## 📁 Project Structure
 
 ```
-_12factor_bmi_microservice/
-├── data/               # Data directory for any data files
-├── docs/              # Documentation files
-├── models/            # Model-related files
-├── notebooks/         # Jupyter notebooks
-├── references/        # Reference materials
-├── reports/          # Generated analysis reports
-├── tests/            # Test files
-├── venv/             # Python virtual environment
-├── .gitignore        # Git ignore file
-├── .pre-commit-config.yaml  # Pre-commit hooks configuration
-├── Makefile          # Automation commands
-├── README.md         # Project documentation
-├── pyproject.toml    # Python project configuration
-├── requirements.txt  # Project dependencies
-└── setup.cfg         # Setup configuration
+_12factor_bmi_microservice/              # Root directory
+├── _12factor_bmi_microservice/          # Inner directory
+│   ├── backend/                         # Backend service
+│   │   └── main.py                      # FastAPI application
+│   └── frontend/                        # Frontend service
+│       └── app.py                       # Streamlit interface
+├── tests/                               # Test files
+│   └── test_bmi_api.py                  # API tests
+├── docs/                                # Documentation
+├── images/                              # Screenshots
+├── .env                                 # Environment variables
+└── requirements.txt                     # Dependencies
 ```
 
-## Features
+## 🔌 API Endpoints
 
-- Fast and accurate BMI calculation
-- User-friendly interface
-- BMI category classification
-- Informative BMI scale visualization
-- Input validation and error handling
-- Responsive design
+### Calculate BMI
 
-## Prerequisites
+```http
+POST /calculate-bmi
+```
 
-- Python 3.7+
-- pip (Python package installer)
-- Make (for using Makefile commands)
+Request body:
 
-## Installation
+```json
+{
+  "name": "string",
+  "weight": "float", // in kilograms
+  "height": "float" // in meters
+}
+```
 
-1. Create and activate a virtual environment (if not already done):
+### Get BMI History
+
+```http
+GET /bmi/history
+```
+
+### Clear History
+
+```http
+DELETE /bmi/history
+```
+
+## 📊 BMI Categories
+
+| Category      | BMI Range   |
+| ------------- | ----------- |
+| Underweight   | < 18.5      |
+| Normal weight | 18.5 - 24.9 |
+| Overweight    | 25 - 29.9   |
+| Obese         | ≥ 30        |
+
+## 🧪 Running Tests
 
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+pytest tests/test_bmi_api.py -v
 ```
 
-2. Install the required dependencies:
+## 📚 Documentation
 
-```bash
-pip install -r requirements.txt
-```
+- API Documentation: http://localhost:8000/docs
+- Project Documentation: http://localhost:8000 (after running `mkdocs serve` in the docs directory)
 
-3. Install pre-commit hooks (optional):
+## 🔒 Security
 
-```bash
-pre-commit install
-```
+- Input validation on both frontend and backend
+- Database connection pooling
+- Environment variable configuration
+- No sensitive data exposure
 
-## Development
+## 📸 Screenshots
 
-The project uses a Makefile for common development tasks. Here are some available commands:
+### BMI Calculator Interface
 
-```bash
-make help           # Show available commands
-make install       # Install project dependencies
-make test          # Run tests
-make lint          # Run linting checks
-make clean         # Clean up generated files
-```
+![BMI Calculator Interface](images/demo_img1.png)
 
-## Running the Application
+### BMI History and Results
 
-1. Start the FastAPI backend server:
-
-```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
-
-The API will be available at http://localhost:8000
-
-2. In a new terminal, start the Streamlit frontend:
-
-```bash
-streamlit run app.py
-```
-
-The web interface will automatically open in your default browser at http://localhost:8501
-
-## API Documentation
-
-Once the backend is running, you can access:
-
-- Interactive API documentation at http://localhost:8000/docs
-- Alternative API documentation at http://localhost:8000/redoc
-
-## Technical Details
-
-### Backend (FastAPI)
-
-- RESTful API endpoint for BMI calculation
-- Input validation using Pydantic models
-- Error handling and proper HTTP status codes
-- Async request handling
-
-### Frontend (Streamlit)
-
-- Clean and intuitive user interface
-- Real-time BMI calculation
-- Visual feedback and animations
-- Responsive layout
-- Informative BMI scale and categories
-
-## BMI Categories
-
-- Underweight: < 18.5
-- Normal weight: 18.5 - 24.9
-- Overweight: 25 - 29.9
-- Obese: ≥ 30
-
+![BMI History and Results](images/demo_img2.png)
