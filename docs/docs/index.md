@@ -1,6 +1,6 @@
-# BMI Calculator Microservice
+# BMI Calculator Microservice 🏋️‍♂️
 
-Welcome to the BMI Calculator Microservice documentation. This project is a modern, scalable microservice that follows the 12-Factor methodology for building software-as-a-service applications.
+A modern, BMI (Body Mass Index) calculator microservice built with FastAPI and Streamlit. This application follows the 12-Factor methodology for building software-as-a-service applications.
 
 ## ✨ Features
 
@@ -9,17 +9,58 @@ Welcome to the BMI Calculator Microservice documentation. This project is a mode
 - **Modern UI**: Clean and responsive interface built with Streamlit
 - **RESTful API**: Well-documented API endpoints using FastAPI
 - **Database Integration**: Persistent storage using MySQL
-- **12-Factor Compliant**: Following cloud-native best practices
 - **Comprehensive Documentation**: Including API docs and deployment guides
 
-## 🏗️ Architecture
+## 🏭 12-Factor Compliance
 
-```mermaid
-graph TB
-    User[User/Browser] --> Frontend[Frontend Service<br/>Streamlit]
-    Frontend --> Backend[Backend Service<br/>FastAPI]
-    Backend --> Database[(MySQL Database)]
-```
+This application implements key principles from the twelve-factor methodology for building modern, scalable applications.
+
+### Implemented Principles
+
+#### 1️⃣ Codebase
+
+- Single codebase tracked in version control
+- Enhanced with pre-commit hooks for code quality
+
+#### 2️⃣ Dependencies
+
+- Explicitly declared in requirements.txt
+- Isolated in virtual environment
+
+#### 3️⃣ Config
+
+- Environment variables stored in .env
+- Virtual environment setup for isolation
+
+#### 4️⃣ Backing Services
+
+- MySQL database treated as attached resource
+- Clean separation of database configuration
+
+#### 5️⃣ Processes
+
+- Stateless application processes
+- Clean separation of concerns
+
+#### 6️⃣ Port Binding
+
+- Services exported via port binding
+- Backend and frontend on separate ports
+
+#### 7️⃣ Concurrency
+
+- Implemented using asyncio
+- Scalable process model
+
+#### 8️⃣ Disposability
+
+- Fast startup and graceful shutdown
+- Implemented using lifecycle event context managers
+
+#### 9️⃣ Logs
+
+- Implemented using Loguru
+- Treated as event streams
 
 ## 🛠️ Tech Stack
 
@@ -29,6 +70,62 @@ graph TB
 - **Documentation**: MkDocs with Material theme
 - **Testing**: pytest
 - **Logging**: Loguru
+
+## 📁 Project Structure
+
+```
+_12factor_bmi_microservice/              # Root directory
+├── _12factor_bmi_microservice/          # Inner directory
+│   ├── backend/                         # Backend service
+│   │   └── main.py                      # FastAPI application
+│   └── frontend/                        # Frontend service
+│       └── app.py                       # Streamlit interface
+├── tests/                               # Test files
+│   └── test_bmi_api.py                  # API tests
+├── docs/                                # Documentation
+├── images/                              # Screenshots
+├── .env                                 # Environment variables
+└── requirements.txt                     # Dependencies
+```
+
+## 🔌 API Endpoints
+
+### Calculate BMI
+
+```http
+POST /calculate-bmi
+```
+
+Request body:
+
+```json
+{
+  "name": "string",
+  "weight": "float", // in kilograms
+  "height": "float" // in meters
+}
+```
+
+### Get BMI History
+
+```http
+GET /bmi/history
+```
+
+### Clear History
+
+```http
+DELETE /bmi/history
+```
+
+## 📊 BMI Categories
+
+| Category    | BMI Range |
+| ----------- | --------- |
+| Underweight | < 18.5    |
+| Normal      | 18.5-24.9 |
+| Overweight  | 25-29.9   |
+| Obese       | ≥ 30      |
 
 ## 📚 Documentation Types
 
@@ -84,18 +181,15 @@ def test_calculate_bmi_normal_weight(test_client):
 
 ## 🌟 Future Enhancements
 
-- [ ] User authentication
-- [ ] Data export functionality
-- [ ] Metric/Imperial unit conversion
-- [ ] BMI trends visualization
-- [ ] Docker containerization
-- [ ] CI/CD pipeline
+- User authentication
+- Data export functionality
+- Metric/Imperial unit conversion
+- BMI trends visualization
+- Docker containerization
+- CI/CD pipeline
 
-## 📧 Contact & Support
+## 📹 Video Tutorial
 
-For questions, issues, or contributions, please:
+Check out our video tutorial on YouTube:
 
-1. Check the [FAQ](getting-started/faq.md)
-2. Review [existing issues](https://github.com/pravatn01/_12factor_bmi_microservice/issues)
-3. Create a new issue if needed
-4. Contact the maintainers
+[![BMI Calculator Microservice Tutorial](https://img.youtube.com/vi/TaVXJhU9zj8/0.jpg)](https://www.youtube.com/watch?v=TaVXJhU9zj8)

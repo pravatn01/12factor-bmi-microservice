@@ -247,12 +247,8 @@ The project documentation includes:
 - Environment variable configuration
 - No sensitive data exposure
 
-## 📸 Screenshots
+## 📹 Video Tutorial
 
-### BMI Calculator Interface
+Click photo below to see the video tutorial of BMI Calculator Microservice in action:
 
-![BMI Calculator Interface](images/demo_img1.png)
-
-### BMI History and Results
-
-![BMI History and Results](images/demo_img2.png)
+[![BMI Calculator Microservice Tutorial](images/demo_img1.png)](https://www.youtube.com/watch?v=TaVXJhU9zj8)

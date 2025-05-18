@@ -1,79 +1,101 @@
 # Running the Application
 
-## Prerequisites
+After completing the installation steps, you can start the BMI Calculator Microservice. The application consists of two main components that need to be run separately: the backend service and the frontend service.
 
-- Python 3.8 or higher installed
-- MySQL 8.0 or higher installed
-- Virtual environment activated
-- Dependencies installed
-- Configuration completed
+## 🚀 Starting the Services
 
-## Starting the Backend
+### 1. Start the Backend Service
 
-1. Navigate to the backend directory:
+Open a terminal in your project directory and run:
 
-   ```bash
-   cd _12factor_bmi_microservice/backend
-   ```
+```bash
+cd _12factor_bmi_microservice\backend
+uvicorn main:app --reload
+```
 
-2. Start the FastAPI server:
-   ```bash
-   uvicorn main:app --reload
-   ```
+The backend service will be available at: http://localhost:8000
 
-The backend will be available at: http://localhost:8000
+You can verify the backend is running by visiting:
 
-## Starting the Frontend
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
 
-1. Open a new terminal
-2. Navigate to the frontend directory:
+### 2. Start the Frontend Service
 
-   ```bash
-   cd _12factor_bmi_microservice/frontend
-   ```
+Open a new terminal window and run:
 
-3. Start the Streamlit app:
-   ```bash
-   streamlit run app.py
-   ```
+```bash
+cd _12factor_bmi_microservice/frontend
+streamlit run app.py
+```
 
-The frontend will be available at: http://localhost:8501
+The frontend service will be available at: http://localhost:8501
 
-## Verifying the Setup
+## 🔍 Verifying the Services
 
-1. Check API documentation:
+### Backend Verification
 
-   - Swagger UI: http://localhost:8000/docs
-   - ReDoc: http://localhost:8000/redoc
+1. Visit http://localhost:8000/docs
+2. Try the `/calculate-bmi` endpoint with sample data
+3. Check if the response is successful
 
-2. Test BMI calculation:
-   - Open frontend at http://localhost:8501
-   - Enter sample height and weight
-   - Check calculation result
+### Frontend Verification
 
-## Troubleshooting
+1. Visit http://localhost:8501
+2. Enter sample weight and height values
+3. Verify that the BMI calculation works
+4. Check if the history is being displayed
+
+## 📊 Default Ports
+
+The services use the following default ports:
+
+- Backend (FastAPI): 8000
+- Frontend (Streamlit): 8501
+- Database (MySQL): 3306
+
+## 🔧 Troubleshooting
 
 ### Common Issues
 
-1. Port already in use:
+1. **Port Already in Use**
+
+   - Check if another process is using the required ports
+   - Kill the process or use different ports
 
    ```bash
-   # For backend
-   uvicorn main:app --reload --port 8001
+   # For backend, use a different port:
+   uvicorn main:app --reload --port 8080
 
-   # For frontend
+   # For frontend, use a different port:
    streamlit run app.py --server.port 8502
    ```
 
-2. Database connection issues:
+2. **Backend Connection Issues**
 
-   - Verify MySQL is running
-   - Check .env configuration
-   - Ensure database exists
+   - Verify the backend service is running
+   - Check the console for error messages
+   - Ensure the database is accessible
 
-3. Module not found errors:
-   - Activate virtual environment
-   - Reinstall dependencies:
-     ```bash
-     pip install -r requirements.txt
-     ```
+3. **Frontend Connection Issues**
+   - Verify the backend URL is correctly configured
+   - Check browser console for errors
+   - Clear browser cache if needed
+
+## 🛑 Stopping the Services
+
+To stop the services:
+
+1. For the frontend and backend services:
+
+   - Press `Ctrl+C` in their respective terminal windows
+
+2. To stop the MySQL service (if needed):
+
+   ```bash
+   # Windows
+   net stop mysql80
+
+   # Linux/MacOS
+   sudo service mysql stop
+   ```
